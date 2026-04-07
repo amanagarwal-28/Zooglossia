@@ -1,0 +1,13 @@
+{
+    "expo": {
+        "name": "Zooglossia",
+        "slug": "zooglossia",
+        "version": "1.0.0",
+        "orientation": "portrait",
+        "platforms": [
+            "ios",
+            "android",
+            "web"
+        ]
+    }
+}

@@ -68,7 +68,7 @@ export function useAnalyze() {
 // Get token from AsyncStorage (set by AuthContext during login)
 async function _getToken() {
     try {
-        const token = await AsyncStorage.getItem("zooglossia_token");
+        const token = await AsyncStorage.getItem("auth_token");
         return token || "";
     } catch (err) {
         console.warn("Failed to retrieve token from storage:", err);

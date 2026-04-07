@@ -1,17 +1,20 @@
 import React, { useState, useEffect } from "react";
 import {
     View, Text, StyleSheet, FlatList, TouchableOpacity,
-    Modal, TextInput, Alert, SafeAreaView
+    Modal, TextInput, Alert, SafeAreaView, ActivityIndicator
 } from "react-native";
 import { useAuth } from "../context/AuthContext";
 
 const SPECIES_EMOJI = { dog: "🐶", cat: "🐱", bird: "🐦", rabbit: "🐰", default: "🐾" };
+const API_URL = process.env.EXPO_PUBLIC_API_URL || "http://localhost:5000";
 
 export function PetsScreen({ navigation }) {
     const [pets, setPets] = useState([]);
     const [modalVisible, setModalVisible] = useState(false);
+    const [loading, setLoading] = useState(false);
+    const [saving, setSaving] = useState(false);
     const [form, setForm] = useState({ name: "", species: "dog", breed: "", age_years: "" });
-    const { logout } = useAuth();
+    const { logout, token } = useAuth();
 
     useEffect(() => {
         navigation.setOptions({
@@ -24,6 +27,10 @@ export function PetsScreen({ navigation }) {
         });
     }, [navigation]);
 
+    useEffect(() => {
+        fetchPets();
+    }, [token]);
+
     async function handleLogout() {
         try {
             await logout();
@@ -32,27 +39,98 @@ export function PetsScreen({ navigation }) {
         }
     }
 
-    function addPet() {
+    async function fetchPets() {
+        if (!token) return;
+
+        setLoading(true);
+        try {
+            const res = await fetch(`${API_URL}/pets`, {
+                method: "GET",
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
+            });
+
+            if (!res.ok) {
+                const body = await res.json().catch(() => ({}));
+                throw new Error(body.error || `Failed to load pets (${res.status})`);
+            }
+
+            const data = await res.json();
+            setPets(Array.isArray(data) ? data : []);
+        } catch (err) {
+            Alert.alert("Failed to load pets", err.message);
+        } finally {
+            setLoading(false);
+        }
+    }
+
+    async function addPet() {
         if (!form.name.trim()) {
             Alert.alert("Name required");
             return;
         }
-        const newPet = {
-            id: Date.now(),
-            name: form.name.trim(),
-            species: form.species.toLowerCase().trim() || "dog",
-            breed: form.breed.trim() || null,
-            age_years: form.age_years ? parseFloat(form.age_years) : null,
-        };
-        setPets((prev) => [...prev, newPet]);
-        setForm({ name: "", species: "dog", breed: "", age_years: "" });
-        setModalVisible(false);
+
+        setSaving(true);
+        try {
+            const payload = {
+                name: form.name.trim(),
+                species: form.species.toLowerCase().trim() || "dog",
+                breed: form.breed.trim() || null,
+                age_years: form.age_years ? parseFloat(form.age_years) : null,
+            };
+
+            const res = await fetch(`${API_URL}/pets`, {
+                method: "POST",
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify(payload),
+            });
+
+            if (!res.ok) {
+                const body = await res.json().catch(() => ({}));
+                throw new Error(body.error || `Failed to add pet (${res.status})`);
+            }
+
+            const createdPet = await res.json();
+            setPets((prev) => [...prev, createdPet]);
+            setForm({ name: "", species: "dog", breed: "", age_years: "" });
+            setModalVisible(false);
+        } catch (err) {
+            Alert.alert("Failed to add pet", err.message);
+        } finally {
+            setSaving(false);
+        }
     }
 
     function deletePet(id) {
         Alert.alert("Remove pet", "Are you sure?", [
             { text: "Cancel", style: "cancel" },
-            { text: "Remove", style: "destructive", onPress: () => setPets((p) => p.filter((pet) => pet.id !== id)) },
+            {
+                text: "Remove",
+                style: "destructive",
+                onPress: async () => {
+                    try {
+                        const res = await fetch(`${API_URL}/pets/${id}`, {
+                            method: "DELETE",
+                            headers: {
+                                Authorization: `Bearer ${token}`,
+                            },
+                        });
+
+                        if (!res.ok) {
+                            const body = await res.json().catch(() => ({}));
+                            throw new Error(body.error || `Failed to delete pet (${res.status})`);
+                        }
+
+                        setPets((prev) => prev.filter((pet) => (pet._id || pet.id) !== id));
+                    } catch (err) {
+                        Alert.alert("Failed to delete pet", err.message);
+                    }
+                },
+            },
         ]);
     }
 
@@ -67,7 +145,12 @@ export function PetsScreen({ navigation }) {
                 </TouchableOpacity>
             </View>
 
-            {pets.length === 0 ? (
+            {loading ? (
+                <View style={styles.empty}>
+                    <ActivityIndicator size="large" color="#1b5e20" />
+                    <Text style={styles.emptyText}>Loading pets...</Text>
+                </View>
+            ) : pets.length === 0 ? (
                 <View style={styles.empty}>
                     <Text style={styles.emptyEmoji}>🐾</Text>
                     <Text style={styles.emptyText}>No pets yet. Tap + Add to get started.</Text>
@@ -75,7 +158,7 @@ export function PetsScreen({ navigation }) {
             ) : (
                 <FlatList
                     data={pets}
-                    keyExtractor={(item) => String(item.id)}
+                    keyExtractor={(item) => String(item._id || item.id)}
                     contentContainerStyle={styles.list}
                     renderItem={({ item }) => (
                         <View style={styles.petCard}>
@@ -87,7 +170,7 @@ export function PetsScreen({ navigation }) {
                                         .filter(Boolean).join(" · ")}
                                 </Text>
                             </View>
-                            <TouchableOpacity onPress={() => deletePet(item.id)}>
+                            <TouchableOpacity onPress={() => deletePet(item._id || item.id)}>
                                 <Text style={styles.deleteBtn}>✕</Text>
                             </TouchableOpacity>
                         </View>
@@ -122,7 +205,7 @@ export function PetsScreen({ navigation }) {
                             <TouchableOpacity style={styles.cancelBtn} onPress={() => setModalVisible(false)}>
                                 <Text style={styles.cancelBtnText}>Cancel</Text>
                             </TouchableOpacity>
-                            <TouchableOpacity style={styles.saveBtn} onPress={addPet}>
+                            <TouchableOpacity style={[styles.saveBtn, saving && styles.disabledBtn]} onPress={addPet} disabled={saving}>
                                 <Text style={styles.saveBtnText}>Save</Text>
                             </TouchableOpacity>
                         </View>
@@ -159,6 +242,7 @@ const styles = StyleSheet.create({
     cancelBtn: { flex: 1, borderWidth: 1, borderColor: "#ddd", borderRadius: 10, padding: 14, alignItems: "center" },
     cancelBtnText: { color: "#555", fontWeight: "600" },
     saveBtn: { flex: 1, backgroundColor: "#1b5e20", borderRadius: 10, padding: 14, alignItems: "center" },
+    disabledBtn: { opacity: 0.6 },
     saveBtnText: { color: "#fff", fontWeight: "600" },
     logoutButton: { paddingVertical: 8, paddingHorizontal: 12 },
     logoutText: { color: "#1b5e20", fontSize: 14, fontWeight: "600" },

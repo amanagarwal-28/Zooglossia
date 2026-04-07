@@ -3,6 +3,7 @@ const express = require("express");
 const cors = require("cors");
 const http = require("http");
 const { Server } = require("socket.io");
+const mongoose = require("mongoose");
 
 const authRoutes = require("./routes/auth");
 const analyzeRoutes = require("./routes/analyze");
@@ -12,6 +13,12 @@ const errorHandler = require("./middleware/errorHandler");
 
 const app = express();
 const server = http.createServer(app);
+
+// ─── MongoDB Connection ──────────────────────────────────────────────────────
+const MONGO_URI = process.env.MONGO_URI || "mongodb://localhost:27017/zooglossia";
+mongoose.connect(MONGO_URI)
+    .then(() => console.info("[db] MongoDB connected"))
+    .catch((err) => console.error("[db] MongoDB connection error:", err.message));
 
 // ─── Socket.IO (real-time analysis push) ────────────────────────────────────
 const io = new Server(server, {

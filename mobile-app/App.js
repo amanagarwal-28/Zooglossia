@@ -60,18 +60,34 @@ function AppNavigator() {
             <Tab.Screen
                 name="Pets"
                 component={PetsStackNavigator}
-
-                return (
-            <NavigationContainer>
-                {isSignedIn ? <AppNavigator /> : <AuthStackNavigator />}
-            </NavigationContainer>
-            );
+                options={{ tabBarIcon: ({ color }) => <Text style={{ fontSize: 20, color }}>🐾</Text> }}
+            />
+        </Tab.Navigator>
+    );
 }
 
-            export default function App() {
+function RootNavigator() {
+    const { isSignedIn, loading } = useAuth();
+
+    if (loading) {
+        return (
+            <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+                <ActivityIndicator size="large" color="#1b5e20" />
+            </View>
+        );
+    }
+
     return (
-            <AuthProvider>
-                <RootNavigator />
-            </AuthProvider>
-            );
+        <NavigationContainer>
+            {isSignedIn ? <AppNavigator /> : <AuthStackNavigator />}
+        </NavigationContainer>
+    );
+}
+
+export default function App() {
+    return (
+        <AuthProvider>
+            <RootNavigator />
+        </AuthProvider>
+    );
 }
