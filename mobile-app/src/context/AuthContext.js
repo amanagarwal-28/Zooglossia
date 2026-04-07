@@ -10,6 +10,17 @@ export function AuthProvider({ children }) {
     const [error, setError] = useState(null);
 
     const API_URL = process.env.EXPO_PUBLIC_API_URL || "http://localhost:5000";
+    const FETCH_TIMEOUT_MS = 10000;
+
+    const _fetchWithTimeout = async (url, options = {}, timeoutMs = FETCH_TIMEOUT_MS) => {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), timeoutMs);
+        try {
+            return await fetch(url, { ...options, signal: controller.signal });
+        } finally {
+            clearTimeout(timeout);
+        }
+    };
 
     // On app start, check if token exists in storage
     useEffect(() => {
@@ -34,7 +45,7 @@ export function AuthProvider({ children }) {
     const register = useCallback(async (email, password, name) => {
         setError(null);
         try {
-            const res = await fetch(`${API_URL}/auth/register`, {
+            const res = await _fetchWithTimeout(`${API_URL}/auth/register`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ email, password, name }),
@@ -45,30 +56,37 @@ export function AuthProvider({ children }) {
                 throw new Error(body.error || "Registration failed");
             }
 
-            // After register, auto-login
-            const loginRes = await fetch(`${API_URL}/auth/login`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ email, password }),
-            });
+            // After register, try auto-login; if it fails, keep signup success message clear.
+            try {
+                const loginRes = await _fetchWithTimeout(`${API_URL}/auth/login`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ email, password }),
+                });
 
-            if (!loginRes.ok) {
-                const body = await loginRes.json().catch(() => ({}));
-                throw new Error(body.error || "Login after register failed");
+                if (!loginRes.ok) {
+                    throw new Error("Account created successfully. Please sign in.");
+                }
+
+                const loginData = await loginRes.json();
+                await _setAuthState(loginData.token, { email, name: loginData.name });
+            } catch (loginErr) {
+                setError("Account created successfully. Please sign in.");
+                throw new Error("Account created successfully. Please sign in.");
             }
-
-            const loginData = await loginRes.json();
-            await _setAuthState(loginData.token, { email, name: loginData.name });
         } catch (err) {
-            setError(err.message);
-            throw err;
+            const message = err?.name === "AbortError"
+                ? "Request timed out. Please check API server and try again."
+                : err.message;
+            setError(message);
+            throw new Error(message);
         }
-    }, []);
+    }, [API_URL]);
 
     const login = useCallback(async (email, password) => {
         setError(null);
         try {
-            const res = await fetch(`${API_URL}/auth/login`, {
+            const res = await _fetchWithTimeout(`${API_URL}/auth/login`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ email, password }),
@@ -82,10 +100,13 @@ export function AuthProvider({ children }) {
             const data = await res.json();
             await _setAuthState(data.token, { email, name: data.name });
         } catch (err) {
-            setError(err.message);
-            throw err;
+            const message = err?.name === "AbortError"
+                ? "Request timed out. Please check API server and try again."
+                : err.message;
+            setError(message);
+            throw new Error(message);
         }
-    }, []);
+    }, [API_URL]);
 
     const logout = useCallback(async () => {
         setUser(null);
@@ -97,8 +118,12 @@ export function AuthProvider({ children }) {
     const _setAuthState = async (newToken, userData) => {
         setToken(newToken);
         setUser(userData);
-        await AsyncStorage.setItem("auth_token", newToken);
-        await AsyncStorage.setItem("auth_user", JSON.stringify(userData));
+        try {
+            await AsyncStorage.setItem("auth_token", newToken);
+            await AsyncStorage.setItem("auth_user", JSON.stringify(userData));
+        } catch (err) {
+            console.warn("[auth] persistence failed", err);
+        }
     };
 
     const value = {

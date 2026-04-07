@@ -16,12 +16,14 @@ export function LoginScreen({ navigation }) {
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [loading, setLoading] = useState(false);
+    const [uiMessage, setUiMessage] = useState("");
 
     const { login, error } = useAuth();
 
     async function handleLogin() {
+        setUiMessage("");
         if (!email.trim() || !password.trim()) {
-            Alert.alert("validation", "Email and password required");
+            setUiMessage("Email and password required");
             return;
         }
 
@@ -29,7 +31,7 @@ export function LoginScreen({ navigation }) {
         try {
             await login(email.toLowerCase().trim(), password);
         } catch (err) {
-            Alert.alert("Login failed", err.message);
+            setUiMessage(err.message || "Login failed");
         } finally {
             setLoading(false);
         }
@@ -69,7 +71,7 @@ export function LoginScreen({ navigation }) {
                         />
                     </View>
 
-                    {error && <Text style={styles.error}>{error}</Text>}
+                    {(uiMessage || error) && <Text style={styles.error}>{uiMessage || error}</Text>}
 
                     <TouchableOpacity
                         style={[styles.loginBtn, loading && styles.disabled]}

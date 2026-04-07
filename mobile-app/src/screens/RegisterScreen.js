@@ -18,20 +18,22 @@ export function RegisterScreen({ navigation }) {
     const [password, setPassword] = useState("");
     const [confirmPassword, setConfirmPassword] = useState("");
     const [loading, setLoading] = useState(false);
+    const [uiMessage, setUiMessage] = useState("");
 
     const { register, error } = useAuth();
 
     async function handleRegister() {
+        setUiMessage("");
         if (!name.trim() || !email.trim() || !password.trim()) {
-            Alert.alert("Validation", "Name, email, and password required");
+            setUiMessage("Name, email, and password required");
             return;
         }
         if (password !== confirmPassword) {
-            Alert.alert("Validation", "Passwords do not match");
+            setUiMessage("Passwords do not match");
             return;
         }
         if (password.length < 8) {
-            Alert.alert("Validation", "Password must be at least 8 characters");
+            setUiMessage("Password must be at least 8 characters");
             return;
         }
 
@@ -39,7 +41,12 @@ export function RegisterScreen({ navigation }) {
         try {
             await register(email.toLowerCase().trim(), password, name.trim());
         } catch (err) {
-            Alert.alert("Registration failed", err.message);
+            if (err.message === "Account created successfully. Please sign in.") {
+                setUiMessage("Account created successfully. Please sign in.");
+                navigation.navigate("Login");
+                return;
+            }
+            setUiMessage(err.message || "Registration failed");
         } finally {
             setLoading(false);
         }
@@ -103,7 +110,7 @@ export function RegisterScreen({ navigation }) {
                         />
                     </View>
 
-                    {error && <Text style={styles.error}>{error}</Text>}
+                    {(uiMessage || error) && <Text style={styles.error}>{uiMessage || error}</Text>}
 
                     <TouchableOpacity
                         style={[styles.signupBtn, loading && styles.disabled]}
