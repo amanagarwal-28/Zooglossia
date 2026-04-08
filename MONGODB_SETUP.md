@@ -121,10 +121,10 @@ curl -X DELETE http://localhost:5000/pets/<PET_ID> \
 ### Setup:
 1. Create account at https://www.mongodb.com/cloud/atlas
 2. Create a cluster (free tier available)
-3. Get connection string: `mongodb+srv://username:password@cluster.mongodb.net/zooglossia`
+3. Get your MongoDB Atlas connection string from the cluster dashboard
 4. Update `.env`:
    ```
-   MONGO_URI=mongodb+srv://username:password@cluster.mongodb.net/zooglossia
+   MONGO_URI=<your-atlas-connection-string>
    ```
 
 ### Security:
