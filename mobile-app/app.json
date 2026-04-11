@@ -4,6 +4,9 @@
         "slug": "zooglossia",
         "version": "1.0.0",
         "orientation": "portrait",
+        "plugins": [
+            "expo-notifications"
+        ],
         "platforms": [
             "ios",
             "android",

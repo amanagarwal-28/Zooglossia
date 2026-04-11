@@ -11,6 +11,7 @@ import {
     View,
 } from "react-native";
 import {
+    configureReminderNotifications,
     DEFAULT_REMINDER_SETTINGS,
     isTimeStringValid,
     loadReminderSettings,
@@ -67,10 +68,18 @@ export function RemindersScreen() {
 
         try {
             setSaving(true);
-            await saveReminderSettings(settings);
-            Alert.alert("Saved", "Reminder settings updated.");
+            const saved = await saveReminderSettings(settings);
+            const result = await configureReminderNotifications(saved);
+
+            if (!result.supported) {
+                Alert.alert("Saved", "Reminders saved. OS notifications are not supported on web.");
+            } else if (saved.enabled) {
+                Alert.alert("Saved", `Reminder settings updated. ${result.scheduled} daily notification(s) scheduled.`);
+            } else {
+                Alert.alert("Saved", "Reminders disabled and scheduled notifications cleared.");
+            }
         } catch (err) {
-            Alert.alert("Failed", "Could not save reminder settings.");
+            Alert.alert("Failed", err?.message || "Could not save reminder settings.");
         } finally {
             setSaving(false);
         }

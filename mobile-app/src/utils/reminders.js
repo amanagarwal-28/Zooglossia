@@ -1,6 +1,9 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { Platform } from "react-native";
+import * as Notifications from "expo-notifications";
 
 export const REMINDER_KEY = "pet_reminder_settings";
+const REMINDER_NOTIFICATION_IDS_KEY = "pet_reminder_notification_ids";
 
 export const DEFAULT_REMINDER_SETTINGS = {
     enabled: false,
@@ -30,6 +33,86 @@ export async function saveReminderSettings(nextSettings) {
         console.warn("Failed to save reminder settings:", err);
         throw err;
     }
+}
+
+function parseTime(value) {
+    const [hour, minute] = value.split(":").map(Number);
+    return { hour, minute };
+}
+
+async function requestNotificationPermissions() {
+    const existing = await Notifications.getPermissionsAsync();
+    if (existing.granted) {
+        return true;
+    }
+    const asked = await Notifications.requestPermissionsAsync();
+    return !!asked.granted;
+}
+
+async function clearScheduledReminderNotifications() {
+    try {
+        const raw = await AsyncStorage.getItem(REMINDER_NOTIFICATION_IDS_KEY);
+        const ids = raw ? JSON.parse(raw) : [];
+        if (Array.isArray(ids)) {
+            for (const id of ids) {
+                try {
+                    await Notifications.cancelScheduledNotificationAsync(id);
+                } catch {
+                    // Ignore stale ids that may already be removed.
+                }
+            }
+        }
+        await AsyncStorage.removeItem(REMINDER_NOTIFICATION_IDS_KEY);
+    } catch (err) {
+        console.warn("Failed clearing scheduled reminder notifications:", err);
+    }
+}
+
+export async function configureReminderNotifications(settings) {
+    if (Platform.OS === "web") {
+        return { supported: false, scheduled: 0 };
+    }
+
+    await clearScheduledReminderNotifications();
+
+    if (!settings?.enabled) {
+        return { supported: true, scheduled: 0 };
+    }
+
+    const granted = await requestNotificationPermissions();
+    if (!granted) {
+        throw new Error("Notification permission was not granted.");
+    }
+
+    const schedules = [
+        { title: "Meal check", body: "Time to check if your pet needs food.", time: settings.mealTime },
+        { title: "Hydration check", body: "Check your pet's water bowl and hydration.", time: settings.hydrationTime },
+        { title: "Playtime check", body: "Give your pet some playtime and interaction.", time: settings.playTime },
+    ];
+
+    const ids = [];
+    for (const item of schedules) {
+        if (!isTimeStringValid(item.time)) {
+            continue;
+        }
+        const { hour, minute } = parseTime(item.time);
+        const id = await Notifications.scheduleNotificationAsync({
+            content: {
+                title: `Zooglossia: ${item.title}`,
+                body: item.body,
+                sound: true,
+            },
+            trigger: {
+                type: Notifications.SchedulableTriggerInputTypes.DAILY,
+                hour,
+                minute,
+            },
+        });
+        ids.push(id);
+    }
+
+    await AsyncStorage.setItem(REMINDER_NOTIFICATION_IDS_KEY, JSON.stringify(ids));
+    return { supported: true, scheduled: ids.length };
 }
 
 export function isTimeStringValid(value) {
