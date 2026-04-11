@@ -66,6 +66,7 @@ class AnalyzeResponse(BaseModel):
     audio_features: AudioFeatures
     naturelm_raw_output: str
     naturelm_intent: str
+    rvc_enhancement_applied: bool
 
 
 # --------------------------------------------------------------------------- #
@@ -114,9 +115,10 @@ async def analyze(
         tmp_path = tmp.name
 
     try:
-        # Step 1: Preprocessing (denoise + features)
+        # Step 1: Preprocessing (denoise + RVC v3 enhancement + features)
         logger.info(f"Running preprocessing on {filename}")
-        features, clean_audio = run_pipeline(tmp_path)
+        features, clean_audio, rvc_applied = run_pipeline(tmp_path)
+        logger.info(f"RVC v3 enhancement applied: {rvc_applied}")
 
         # Step 2: NatureLM intent classification + audio embedding
         naturelm_result = _run_naturelm(clean_audio)
@@ -154,6 +156,7 @@ async def analyze(
         ),
         naturelm_raw_output=naturelm_result["raw_model_output"],
         naturelm_intent=naturelm_result["intent_label"],
+        rvc_enhancement_applied=rvc_applied,
     )
 
 

@@ -9,3 +9,7 @@ dist/
 .expo/
 .vscode/
 preferences.md
+# Model checkpoints — never commit large binary weights
+*.pth
+*.pt
+ai-service/voice/checkpoints/

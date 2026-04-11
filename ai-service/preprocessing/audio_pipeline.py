@@ -6,6 +6,8 @@ import soundfile as sf
 from df.enhance import enhance, init_df, load_audio
 from df.io import resample
 
+from voice.rvc_enhancer import enhance_vocalization
+
 TARGET_SR = 16000
 
 
@@ -50,5 +52,7 @@ def extract_features(audio: np.ndarray):
 def run_pipeline(file_path: str):
     audio = load_and_resample(file_path)
     clean_audio = denoise(audio)
-    features = extract_features(clean_audio)
-    return features, clean_audio
+    # Optional RVC v3 voice enhancement — skipped gracefully if model unavailable
+    enhanced_audio, rvc_applied = enhance_vocalization(clean_audio, sample_rate=TARGET_SR)
+    features = extract_features(enhanced_audio)
+    return features, enhanced_audio, rvc_applied
