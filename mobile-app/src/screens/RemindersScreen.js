@@ -32,6 +32,33 @@ export function RemindersScreen() {
         setSettings((prev) => ({ ...prev, [key]: value }));
     }
 
+    function applyPreset(preset) {
+        if (preset === "early") {
+            setSettings((prev) => ({
+                ...prev,
+                mealTime: "07:30",
+                hydrationTime: "11:30",
+                playTime: "17:30",
+            }));
+            return;
+        }
+        if (preset === "balanced") {
+            setSettings((prev) => ({
+                ...prev,
+                mealTime: "08:00",
+                hydrationTime: "12:00",
+                playTime: "18:00",
+            }));
+            return;
+        }
+        setSettings((prev) => ({
+            ...prev,
+            mealTime: "09:00",
+            hydrationTime: "14:00",
+            playTime: "20:00",
+        }));
+    }
+
     async function handleSave() {
         if (!isTimeStringValid(settings.mealTime) || !isTimeStringValid(settings.hydrationTime) || !isTimeStringValid(settings.playTime)) {
             Alert.alert("Invalid time", "Use 24-hour format HH:MM, for example 08:30.");
@@ -69,6 +96,18 @@ export function RemindersScreen() {
 
                 <View style={styles.card}>
                     <Text style={styles.section}>Daily schedule</Text>
+
+                    <View style={styles.presetsRow}>
+                        <TouchableOpacity style={styles.presetBtn} onPress={() => applyPreset("early")}>
+                            <Text style={styles.presetText}>Early Day</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity style={styles.presetBtn} onPress={() => applyPreset("balanced")}>
+                            <Text style={styles.presetText}>Balanced</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity style={styles.presetBtn} onPress={() => applyPreset("late")}>
+                            <Text style={styles.presetText}>Late Day</Text>
+                        </TouchableOpacity>
+                    </View>
 
                     <View style={styles.inputRow}>
                         <Text style={styles.inputLabel}>Meal check</Text>
@@ -131,6 +170,17 @@ const styles = StyleSheet.create({
     switchRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
     label: { fontSize: 15, fontWeight: "600", color: "#333" },
     section: { fontSize: 16, fontWeight: "700", color: "#333", marginBottom: 12 },
+    presetsRow: { flexDirection: "row", gap: 8, marginBottom: 12 },
+    presetBtn: {
+        flex: 1,
+        backgroundColor: "#eef7ef",
+        borderRadius: 10,
+        paddingVertical: 9,
+        alignItems: "center",
+        borderWidth: 1,
+        borderColor: "#d4ecd8",
+    },
+    presetText: { color: "#1f6a2a", fontSize: 12, fontWeight: "700" },
     inputRow: { marginBottom: 10 },
     inputLabel: { color: "#666", marginBottom: 4, fontSize: 13 },
     input: {
