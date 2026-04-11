@@ -34,8 +34,8 @@ export function HomeScreen({ navigation }) {
         try {
             const result = await analyze(uri);
             navigation.navigate("Results", { result });
-        } catch {
-            Alert.alert("Analysis failed", error || "Unknown error");
+        } catch (err) {
+            Alert.alert("Analysis failed", err?.message || "Unknown error");
         }
     }
 

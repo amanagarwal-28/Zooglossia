@@ -43,7 +43,9 @@ router.post("/", upload.single("audio"), async (req, res, next) => {
         res.json(result);
     } catch (err) {
         if (err.response) {
-            return res.status(err.response.status).json({ error: err.response.data });
+            const data = err.response.data;
+            const msg = data?.detail || data?.error || (typeof data === "string" ? data : JSON.stringify(data));
+            return res.status(err.response.status).json({ error: msg });
         }
         next(err);
     }

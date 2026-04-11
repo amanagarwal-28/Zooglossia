@@ -4,6 +4,7 @@ import * as DocumentPicker from "expo-document-picker";
 import * as FileSystem from "expo-file-system";
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL || "http://localhost:5000";
+const HISTORY_KEY = "analysis_history";
 
 export function useAnalyze() {
     const [loading, setLoading] = useState(false);
@@ -19,11 +20,20 @@ export function useAnalyze() {
             const token = await _getToken();
 
             const formData = new FormData();
-            formData.append("audio", {
-                uri: audioUri,
-                type: "audio/wav",
-                name: "recording.wav",
-            });
+            // On web, audioUri is a blob: URL — must fetch it to get the actual Blob.
+            // On native, use the RN object shorthand { uri, type, name }.
+            if (typeof document !== "undefined" && audioUri.startsWith("blob:")) {
+                const blobRes = await fetch(audioUri);
+                const blob = await blobRes.blob();
+                const file = new File([blob], "recording.wav", { type: "audio/wav" });
+                formData.append("audio", file);
+            } else {
+                formData.append("audio", {
+                    uri: audioUri,
+                    type: "audio/wav",
+                    name: "recording.wav",
+                });
+            }
 
             const defaults = {
                 time_of_day: new Date().getHours() + new Date().getMinutes() / 60,
@@ -41,18 +51,19 @@ export function useAnalyze() {
                 method: "POST",
                 headers: {
                     Authorization: `Bearer ${token}`,
-                    "Content-Type": "multipart/form-data",
                 },
                 body: formData,
             });
 
             if (!res.ok) {
                 const body = await res.json().catch(() => ({}));
-                throw new Error(body.error || `Server error ${res.status}`);
+                const msg = typeof body.error === "string" ? body.error : JSON.stringify(body.error);
+                throw new Error(msg || `Server error ${res.status}`);
             }
 
             const data = await res.json();
             setResult(data);
+            await _appendHistory(data);
             return data;
         } catch (err) {
             setError(err.message);
@@ -73,5 +84,21 @@ async function _getToken() {
     } catch (err) {
         console.warn("Failed to retrieve token from storage:", err);
         return "";
+    }
+}
+
+async function _appendHistory(result) {
+    try {
+        const raw = await AsyncStorage.getItem(HISTORY_KEY);
+        const list = raw ? JSON.parse(raw) : [];
+        const entry = {
+            id: `${Date.now()}-${Math.floor(Math.random() * 100000)}`,
+            createdAt: new Date().toISOString(),
+            result,
+        };
+        const next = [entry, ...list].slice(0, 50);
+        await AsyncStorage.setItem(HISTORY_KEY, JSON.stringify(next));
+    } catch (err) {
+        console.warn("Failed to save analysis history:", err);
     }
 }
