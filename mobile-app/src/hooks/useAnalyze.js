@@ -11,7 +11,7 @@ export function useAnalyze() {
     const [result, setResult] = useState(null);
     const [error, setError] = useState(null);
 
-    const analyze = useCallback(async (audioUri, iotContext = {}) => {
+    const analyze = useCallback(async (audioUri, iotContext = {}, pet = null) => {
         setLoading(true);
         setError(null);
         setResult(null);
@@ -63,7 +63,7 @@ export function useAnalyze() {
 
             const data = await res.json();
             setResult(data);
-            await _appendHistory(data);
+            await _appendHistory(data, pet);
             return data;
         } catch (err) {
             setError(err.message);
@@ -87,13 +87,16 @@ async function _getToken() {
     }
 }
 
-async function _appendHistory(result) {
+async function _appendHistory(result, pet = null) {
     try {
         const raw = await AsyncStorage.getItem(HISTORY_KEY);
         const list = raw ? JSON.parse(raw) : [];
         const entry = {
             id: `${Date.now()}-${Math.floor(Math.random() * 100000)}`,
             createdAt: new Date().toISOString(),
+            petId: pet?._id || null,
+            petName: pet?.name || null,
+            petSpecies: pet?.species || null,
             result,
         };
         const next = [entry, ...list].slice(0, 50);

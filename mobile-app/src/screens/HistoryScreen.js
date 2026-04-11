@@ -108,6 +108,9 @@ export function HistoryScreen() {
                                     <Text style={styles.intent}>{res.intent_label || "Unknown intent"}</Text>
                                     <Text style={styles.confidence}>{confidence}%</Text>
                                 </View>
+                                {entry.petName && (
+                                    <Text style={styles.petTag}>🐾 {entry.petName}</Text>
+                                )}
                                 <Text style={styles.date}>{formatDate(entry.createdAt)}</Text>
 
                                 {expanded && (
@@ -169,6 +172,7 @@ const styles = StyleSheet.create({
     cardTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
     intent: { color: "#1b5e20", fontSize: 16, fontWeight: "700", flex: 1, paddingRight: 10, textTransform: "capitalize" },
     confidence: { color: "#2e7d32", fontSize: 15, fontWeight: "700" },
+    petTag: { color: "#388e3c", fontSize: 12, marginTop: 2 },
     date: { color: "#777", marginTop: 4, fontSize: 12 },
     details: {
         marginTop: 12,

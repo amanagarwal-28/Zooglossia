@@ -5,6 +5,11 @@ import {
 } from "react-native";
 import { useAuth } from "../context/AuthContext";
 
+const SPECIES_EMOJI = {
+    dog: "🐕", cat: "🐈", bird: "🦜", rabbit: "🐇",
+    hamster: "🐹", fish: "🐟", reptile: "🦎", other: "🐾",
+};
+
 const INTENT_EMOJI = {
     "hunger or food request": "🍖",
     "play or excitement": "🎾",
@@ -17,7 +22,7 @@ const INTENT_EMOJI = {
 };
 
 export function ResultsScreen({ route, navigation }) {
-    const { result } = route.params;
+    const { result, pet } = route.params;
     const { logout } = useAuth();
     const emoji = INTENT_EMOJI[result.intent_label] || "❓";
     const pct = Math.round(result.intent_confidence * 100);
@@ -49,6 +54,11 @@ export function ResultsScreen({ route, navigation }) {
                 {/* Main result card */}
                 <View style={styles.card}>
                     <Text style={styles.emoji}>{emoji}</Text>
+                    {pet && (
+                        <Text style={styles.petTag}>
+                            {SPECIES_EMOJI[pet.species] || "🐾"} {pet.name}
+                        </Text>
+                    )}
                     <Text style={styles.intentLabel}>{result.intent_label}</Text>
                     <Text style={styles.confidence}>{pct}% confidence</Text>
                 </View>
@@ -92,6 +102,7 @@ const styles = StyleSheet.create({
     container: { padding: 24, paddingBottom: 48 },
     card: { backgroundColor: "#e8f5e9", borderRadius: 16, padding: 24, alignItems: "center", marginBottom: 24 },
     emoji: { fontSize: 56, marginBottom: 8 },
+    petTag: { fontSize: 14, fontWeight: "600", color: "#388e3c", marginBottom: 8 },
     intentLabel: { fontSize: 22, fontWeight: "700", color: "#1b5e20", textTransform: "capitalize", textAlign: "center" },
     confidence: { fontSize: 16, color: "#388e3c", marginTop: 4 },
     infoRow: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 8, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: "#ddd" },
