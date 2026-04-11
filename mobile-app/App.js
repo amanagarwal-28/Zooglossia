@@ -11,6 +11,7 @@ import { HomeScreen } from "./src/screens/HomeScreen";
 import { ResultsScreen } from "./src/screens/ResultsScreen";
 import { PetsScreen } from "./src/screens/PetsScreen";
 import { HistoryScreen } from "./src/screens/HistoryScreen";
+import { ProfileScreen } from "./src/screens/ProfileScreen";
 
 const Tab = createBottomTabNavigator();
 const AuthStack = createNativeStackNavigator();
@@ -67,6 +68,11 @@ function AppNavigator() {
                 name="History"
                 component={HistoryScreen}
                 options={{ tabBarIcon: ({ color }) => <Text style={{ fontSize: 20, color }}>🕒</Text> }}
+            />
+            <Tab.Screen
+                name="Profile"
+                component={ProfileScreen}
+                options={{ tabBarIcon: ({ color }) => <Text style={{ fontSize: 20, color }}>⚙️</Text> }}
             />
         </Tab.Navigator>
     );
