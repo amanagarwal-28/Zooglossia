@@ -3,13 +3,36 @@ import {
     View, Text, StyleSheet, ScrollView,
     ActivityIndicator, Alert, SafeAreaView, TouchableOpacity
 } from "react-native";
+import { useFocusEffect } from "@react-navigation/native";
 import { AudioRecorder } from "../components/AudioRecorder";
 import { useAnalyze } from "../hooks/useAnalyze";
 import { useAuth } from "../context/AuthContext";
+import { getDueReminderMessage, loadReminderSettings, saveReminderSettings } from "../utils/reminders";
 
 export function HomeScreen({ navigation }) {
     const { analyze, loading, error } = useAnalyze();
     const { logout, user } = useAuth();
+
+    useFocusEffect(
+        React.useCallback(() => {
+            let cancelled = false;
+
+            (async () => {
+                const settings = await loadReminderSettings();
+                const due = getDueReminderMessage(settings);
+                if (!due || cancelled) {
+                    return;
+                }
+
+                Alert.alert("Pet Reminder", due.message);
+                await saveReminderSettings({ ...settings, lastShownDate: due.todayKey });
+            })();
+
+            return () => {
+                cancelled = true;
+            };
+        }, [])
+    );
 
     useEffect(() => {
         navigation.setOptions({
