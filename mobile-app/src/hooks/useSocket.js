@@ -23,7 +23,7 @@ export function useSocket() {
             let token = "";
             try {
                 token = (await AsyncStorage.getItem("auth_token")) || "";
-            } catch (_) {}
+            } catch (_) { }
 
             if (!active) return;
 

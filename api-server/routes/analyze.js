@@ -8,6 +8,14 @@ const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 
 
 const AI_SERVICE_URL = process.env.AI_SERVICE_URL || "http://localhost:8000";
 
+// Handle multer file-too-large error before it reaches the global handler
+function handleMulterError(err, req, res, next) {
+    if (err?.code === "LIMIT_FILE_SIZE") {
+        return res.status(413).json({ error: "Audio file too large (max 20 MB)" });
+    }
+    next(err);
+}
+
 // POST /analyze  — multipart: audio file + optional IoT fields
 router.post("/", upload.single("audio"), async (req, res, next) => {
     try {
@@ -38,7 +46,7 @@ router.post("/", upload.single("audio"), async (req, res, next) => {
 
         // Push real-time event to connected WebSocket clients
         const io = req.app.get("io");
-        io.emit("analysis_complete", { userId: req.user.email, result });
+        io.to(req.user.email).emit("analysis_complete", { userId: req.user.email, result });
 
         res.json(result);
     } catch (err) {
@@ -50,5 +58,7 @@ router.post("/", upload.single("audio"), async (req, res, next) => {
         next(err);
     }
 });
+
+router.use(handleMulterError);
 
 module.exports = router;

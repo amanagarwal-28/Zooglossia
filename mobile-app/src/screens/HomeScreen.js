@@ -18,7 +18,7 @@ export function HomeScreen({ navigation }) {
     const { analyze, loading, error } = useAnalyze();
     const { logout, user } = useAuth();
     const { pets, selectedPet, setSelectedPet, refetch: refetchPets } = usePets();
-        const { connected } = useSocket();
+    const { connected, subscribe } = useSocket();
     const [pickerVisible, setPickerVisible] = React.useState(false);
 
     useFocusEffect(
@@ -48,6 +48,15 @@ export function HomeScreen({ navigation }) {
             headerRightContainerStyle: { paddingRight: 16 },
         });
     }, [navigation]);
+
+    useEffect(() => {
+        const unsubscribe = subscribe("analysis_complete", (payload) => {
+            if (!payload || payload.userId !== user?.email) return;
+            const label = payload?.result?.intent_label || "analysis";
+            Alert.alert("Realtime update", `New ${label} result is ready.`);
+        });
+        return unsubscribe;
+    }, [subscribe, user?.email]);
 
     async function handleLogout() {
         try {
