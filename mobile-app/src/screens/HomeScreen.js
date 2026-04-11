@@ -9,6 +9,7 @@ import { AudioRecorder } from "../components/AudioRecorder";
 import { useAnalyze } from "../hooks/useAnalyze";
 import { useAuth } from "../context/AuthContext";
 import { usePets } from "../hooks/usePets";
+import { useSocket } from "../hooks/useSocket";
 import { getDueReminderMessage, loadReminderSettings, saveReminderSettings } from "../utils/reminders";
 
 const SPECIES_EMOJI = { dog: "🐶", cat: "🐱", bird: "🐦", rabbit: "🐰" };
@@ -17,6 +18,7 @@ export function HomeScreen({ navigation }) {
     const { analyze, loading, error } = useAnalyze();
     const { logout, user } = useAuth();
     const { pets, selectedPet, setSelectedPet, refetch: refetchPets } = usePets();
+        const { connected } = useSocket();
     const [pickerVisible, setPickerVisible] = React.useState(false);
 
     useFocusEffect(
@@ -74,6 +76,10 @@ export function HomeScreen({ navigation }) {
                 <Text style={styles.title}>Zooglossia</Text>
                 <Text style={styles.subtitle}>Understand what your pet is saying</Text>
                 {user?.name && <Text style={styles.userText}>Hey, {user.name}!</Text>}
+                <View style={styles.wsRow}>
+                    <View style={[styles.wsDot, connected ? styles.wsDotOn : styles.wsDotOff]} />
+                    <Text style={styles.wsText}>{connected ? "Live" : "Connecting…"}</Text>
+                </View>
 
                 {/* Pet selector */}
                 <TouchableOpacity
@@ -169,4 +175,9 @@ const styles = StyleSheet.create({
     modalItemSelected: { backgroundColor: "#f1f8f1" },
     modalItemText: { fontSize: 15, color: "#222" },
     checkmark: { color: "#2e7d32", fontWeight: "700" },
+    wsRow: { flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 8 },
+    wsDot: { width: 8, height: 8, borderRadius: 4 },
+    wsDotOn: { backgroundColor: "#43a047" },
+    wsDotOff: { backgroundColor: "#bdbdbd" },
+    wsText: { fontSize: 11, color: "#888" },
 });
