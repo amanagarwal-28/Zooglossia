@@ -7,8 +7,8 @@ const errorHandler = require("../middleware/errorHandler");
 
 function makeWavBuffer() {
     const sampleRate = 16000;
-    const numSamples = 1600; // 100 ms of silence
-    const dataSize = numSamples * 2; // 16-bit PCM
+    const numSamples = 1600;
+    const dataSize = numSamples * 2;
     const buf = Buffer.alloc(44 + dataSize);
     buf.write("RIFF", 0);
     buf.writeUInt32LE(36 + dataSize, 4);
@@ -33,9 +33,9 @@ function buildApp({ mockIo } = {}) {
     const io = mockIo || { to: () => ({ emit: () => {} }) };
     app.set("io", io);
 
-    app.use("/auth", authRoutes);
-    app.use("/pets", authMiddleware, petRoutes);
-    app.use("/analyze", authMiddleware, analyzeRoutes);
+    app.use("/v1/auth", authRoutes);
+    app.use("/v1/pets", authMiddleware, petRoutes);
+    app.use("/v1/analyze", authMiddleware, analyzeRoutes);
     app.use(errorHandler);
 
     return app;

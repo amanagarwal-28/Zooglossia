@@ -28,6 +28,27 @@ jobs:
         working-directory: api-server
         run: npm test
 
+  mobile-test:
+    name: Mobile App Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: mobile-app/package-lock.json
+
+      - name: Install dependencies
+        working-directory: mobile-app
+        run: npm ci --legacy-peer-deps
+
+      - name: Run tests
+        working-directory: mobile-app
+        run: npm test
+
   ai-lint:
     name: AI Service Lint
     runs-on: ubuntu-latest
@@ -48,10 +69,30 @@ jobs:
         working-directory: ai-service
         run: ruff check . --select E,F,W --ignore E501
 
+  ai-test:
+    name: AI Service Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: ai-service/requirements.txt
+
+      - name: Install test dependencies
+        run: |
+          pip install pytest numpy torch --index-url https://download.pytorch.org/whl/cpu
+
+      - name: Run AI service tests
+        working-directory: ai-service
+        run: pytest tests/ -v --tb=short
+
   docker-build:
     name: Docker Build Check
     runs-on: ubuntu-latest
-    # Only verify the build works; don't push
     steps:
       - uses: actions/checkout@v4
 

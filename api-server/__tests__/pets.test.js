@@ -7,35 +7,54 @@ const app = buildApp();
 
 async function registerAndLogin(email = "pet-user@test.com") {
     await request(app)
-        .post("/auth/register")
+        .post("/v1/auth/register")
         .send({ email, password: "password123", name: "Tester" });
     const res = await request(app)
-        .post("/auth/login")
+        .post("/v1/auth/login")
         .send({ email, password: "password123" });
     return res.body.token;
 }
 
-describe("GET /pets", () => {
+describe("GET /v1/pets", () => {
     it("returns 401 without token", async () => {
-        const res = await request(app).get("/pets");
+        const res = await request(app).get("/v1/pets");
         expect(res.status).toBe(401);
     });
 
-    it("returns empty array for new user", async () => {
+    it("returns paginated empty result for new user", async () => {
         const token = await registerAndLogin();
         const res = await request(app)
-            .get("/pets")
+            .get("/v1/pets")
             .set("Authorization", `Bearer ${token}`);
         expect(res.status).toBe(200);
-        expect(res.body).toEqual([]);
+        expect(res.body.data).toEqual([]);
+        expect(res.body.total).toBe(0);
+        expect(res.body.page).toBe(1);
+    });
+
+    it("respects page and limit query params", async () => {
+        const token = await registerAndLogin("paginate@test.com");
+        for (let i = 0; i < 3; i++) {
+            await request(app)
+                .post("/v1/pets")
+                .set("Authorization", `Bearer ${token}`)
+                .send({ name: `Pet${i}`, species: "cat" });
+        }
+        const res = await request(app)
+            .get("/v1/pets?page=1&limit=2")
+            .set("Authorization", `Bearer ${token}`);
+        expect(res.status).toBe(200);
+        expect(res.body.data).toHaveLength(2);
+        expect(res.body.total).toBe(3);
+        expect(res.body.pages).toBe(2);
     });
 });
 
-describe("POST /pets", () => {
+describe("POST /v1/pets", () => {
     it("creates a pet and returns 201", async () => {
         const token = await registerAndLogin();
         const res = await request(app)
-            .post("/pets")
+            .post("/v1/pets")
             .set("Authorization", `Bearer ${token}`)
             .send({ name: "Buddy", species: "dog", breed: "Labrador", age_years: 3 });
         expect(res.status).toBe(201);
@@ -47,7 +66,7 @@ describe("POST /pets", () => {
     it("returns 400 when name is missing", async () => {
         const token = await registerAndLogin();
         const res = await request(app)
-            .post("/pets")
+            .post("/v1/pets")
             .set("Authorization", `Bearer ${token}`)
             .send({ species: "cat" });
         expect(res.status).toBe(400);
@@ -56,24 +75,24 @@ describe("POST /pets", () => {
     it("returns 400 when species is missing", async () => {
         const token = await registerAndLogin();
         const res = await request(app)
-            .post("/pets")
+            .post("/v1/pets")
             .set("Authorization", `Bearer ${token}`)
             .send({ name: "Whiskers" });
         expect(res.status).toBe(400);
     });
 });
 
-describe("GET /pets/:id", () => {
+describe("GET /v1/pets/:id", () => {
     it("returns the pet by id", async () => {
         const token = await registerAndLogin();
         const create = await request(app)
-            .post("/pets")
+            .post("/v1/pets")
             .set("Authorization", `Bearer ${token}`)
             .send({ name: "Rex", species: "dog" });
         const id = create.body._id;
 
         const res = await request(app)
-            .get(`/pets/${id}`)
+            .get(`/v1/pets/${id}`)
             .set("Authorization", `Bearer ${token}`);
         expect(res.status).toBe(200);
         expect(res.body.name).toBe("Rex");
@@ -84,34 +103,34 @@ describe("GET /pets/:id", () => {
         const token2 = await registerAndLogin("other@test.com");
 
         const create = await request(app)
-            .post("/pets")
+            .post("/v1/pets")
             .set("Authorization", `Bearer ${token1}`)
             .send({ name: "Mine", species: "cat" });
         const id = create.body._id;
 
         const res = await request(app)
-            .get(`/pets/${id}`)
+            .get(`/v1/pets/${id}`)
             .set("Authorization", `Bearer ${token2}`);
         expect(res.status).toBe(404);
     });
 });
 
-describe("DELETE /pets/:id", () => {
+describe("DELETE /v1/pets/:id", () => {
     it("deletes the pet and returns 204", async () => {
         const token = await registerAndLogin();
         const create = await request(app)
-            .post("/pets")
+            .post("/v1/pets")
             .set("Authorization", `Bearer ${token}`)
             .send({ name: "Goldie", species: "fish" });
         const id = create.body._id;
 
         const del = await request(app)
-            .delete(`/pets/${id}`)
+            .delete(`/v1/pets/${id}`)
             .set("Authorization", `Bearer ${token}`);
         expect(del.status).toBe(204);
 
         const get = await request(app)
-            .get(`/pets/${id}`)
+            .get(`/v1/pets/${id}`)
             .set("Authorization", `Bearer ${token}`);
         expect(get.status).toBe(404);
     });
@@ -121,13 +140,13 @@ describe("DELETE /pets/:id", () => {
         const token2 = await registerAndLogin("delother@test.com");
 
         const create = await request(app)
-            .post("/pets")
+            .post("/v1/pets")
             .set("Authorization", `Bearer ${token1}`)
             .send({ name: "NotYours", species: "rabbit" });
         const id = create.body._id;
 
         const res = await request(app)
-            .delete(`/pets/${id}`)
+            .delete(`/v1/pets/${id}`)
             .set("Authorization", `Bearer ${token2}`);
         expect(res.status).toBe(404);
     });

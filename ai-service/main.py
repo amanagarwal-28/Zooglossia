@@ -3,19 +3,48 @@ import os
 import tempfile
 from typing import Annotated, Optional
 
+import sentry_sdk
+import structlog
 import numpy as np
 import soundfile as sf
 from dotenv import load_dotenv
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile, status
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+from sentry_sdk.integrations.fastapi import FastApiIntegration
+from sentry_sdk.integrations.starlette import StarletteIntegration
 
 from models.fusion_transformer import FusionTransformer, IoTContext
 from preprocessing.audio_pipeline import run_pipeline
 
 load_dotenv()
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger("zooglossia")
+
+# ─── Structured logging ──────────────────────────────────────────────────────
+structlog.configure(
+    processors=[
+        structlog.stdlib.add_log_level,
+        structlog.stdlib.add_logger_name,
+        structlog.processors.TimeStamper(fmt="iso"),
+        structlog.processors.StackInfoRenderer(),
+        structlog.processors.format_exc_info,
+        structlog.processors.JSONRenderer() if os.getenv("NODE_ENV") == "production"
+        else structlog.dev.ConsoleRenderer(),
+    ],
+    wrapper_class=structlog.make_filtering_bound_logger(logging.INFO),
+    context_class=dict,
+    logger_factory=structlog.PrintLoggerFactory(),
+)
+logger = structlog.get_logger("zooglossia")
+
+# ─── Sentry ──────────────────────────────────────────────────────────────────
+_sentry_dsn = os.getenv("SENTRY_DSN_AI")
+if _sentry_dsn:
+    sentry_sdk.init(
+        dsn=_sentry_dsn,
+        environment=os.getenv("NODE_ENV", "development"),
+        traces_sample_rate=0.2,
+        integrations=[StarletteIntegration(), FastApiIntegration()],
+    )
 
 # --------------------------------------------------------------------------- #
 # Lazy-loaded singletons                                                       #
@@ -41,9 +70,10 @@ app = FastAPI(
     version="0.1.0",
 )
 
+_allowed_origins = [o.strip() for o in os.getenv("ALLOWED_ORIGINS", "").split(",") if o.strip()]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=os.getenv("ALLOWED_ORIGINS", "*").split(","),
+    allow_origins=_allowed_origins or ["http://localhost:5000"],
     allow_methods=["POST", "GET"],
     allow_headers=["*"],
 )
@@ -114,11 +144,11 @@ async def analyze(
         tmp.write(contents)
         tmp_path = tmp.name
     
-    logger.info(f"Saved audio upload: {tmp_path}, size={len(contents)} bytes, suffix={suffix}")
+    logger.info("audio upload saved", path=tmp_path, size=len(contents), suffix=suffix)
 
     # Check if in demo mode (skip heavy ML models)
     if os.getenv("DEMO_MODE") == "1":
-        logger.info("DEMO_MODE enabled - returning mock analysis")
+        logger.info("demo mode active, returning mock analysis")
         os.unlink(tmp_path)
         return AnalyzeResponse(
             intent_label="play or excitement",
@@ -143,9 +173,9 @@ async def analyze(
 
     try:
         # Step 1: Preprocessing (denoise + RVC v3 enhancement + features)
-        logger.info(f"Running preprocessing on {filename}")
+        logger.info("running preprocessing", filename=filename)
         features, clean_audio, rvc_applied = run_pipeline(tmp_path)
-        logger.info(f"RVC v3 enhancement applied: {rvc_applied}")
+        logger.info("preprocessing complete", rvc_applied=rvc_applied)
 
         # Step 2: NatureLM intent classification + audio embedding
         naturelm_result = _run_naturelm(clean_audio)

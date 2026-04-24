@@ -1,6 +1,15 @@
 version: "3.9"
 
 services:
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+
   mongodb:
     image: mongo:7
     restart: unless-stopped
@@ -33,9 +42,12 @@ services:
       - NODE_ENV=${NODE_ENV:-production}
       - AI_SERVICE_URL=http://ai-service:8000
       - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-}
+      - REDIS_URL=redis://redis:6379
     depends_on:
       - mongodb
       - ai-service
+      - redis
 
 volumes:
   mongo_data:
+  redis_data:

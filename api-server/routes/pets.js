@@ -1,12 +1,21 @@
 const express = require("express");
 const Pet = require("../models/Pet");
+const logger = require("../logger");
 
 const router = express.Router();
 
 router.get("/", async (req, res, next) => {
     try {
-        const userPets = await Pet.find({ owner: req.user.email });
-        res.json(userPets);
+        const page = Math.max(1, parseInt(req.query.page) || 1);
+        const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
+        const skip = (page - 1) * limit;
+
+        const [data, total] = await Promise.all([
+            Pet.find({ owner: req.user.email }).skip(skip).limit(limit).sort({ createdAt: -1 }),
+            Pet.countDocuments({ owner: req.user.email }),
+        ]);
+
+        res.json({ data, page, limit, total, pages: Math.ceil(total / limit) });
     } catch (err) {
         next(err);
     }
@@ -14,12 +23,8 @@ router.get("/", async (req, res, next) => {
 
 router.post("/", async (req, res, next) => {
     try {
-        console.log("[pets] POST /pets request from:", req.user.email);
-        console.log("[pets] Body:", req.body);
-
         const { name, species, breed, age_years } = req.body;
         if (!name || !species) {
-            console.log("[pets] Validation failed: missing name or species");
             return res.status(400).json({ error: "name and species are required" });
         }
 
@@ -31,12 +36,10 @@ router.post("/", async (req, res, next) => {
             age_years: age_years || null,
         });
 
-        console.log("[pets] Saving pet:", pet);
         await pet.save();
-        console.log("[pets] Pet saved successfully:", pet._id);
+        logger.info("[pets] pet created", { petId: pet._id, owner: req.user.email });
         res.status(201).json(pet);
     } catch (err) {
-        console.error("[pets] Error in POST /pets:", err);
         next(err);
     }
 });
@@ -55,6 +58,7 @@ router.delete("/:id", async (req, res, next) => {
     try {
         const pet = await Pet.findOneAndDelete({ _id: req.params.id, owner: req.user.email });
         if (!pet) return res.status(404).json({ error: "Pet not found" });
+        logger.info("[pets] pet deleted", { petId: req.params.id, owner: req.user.email });
         res.status(204).send();
     } catch (err) {
         next(err);

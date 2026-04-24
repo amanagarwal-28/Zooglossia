@@ -1,100 +1,100 @@
 process.env.JWT_SECRET = "test-secret";
 
-jest.mock("axios");
-const axios = require("axios");
+// Mock the BullMQ queue so tests don't need Redis
+const mockJob = { id: "mock-job-123" };
+const mockGetJob = jest.fn();
+jest.mock("../queue/analysisQueue", () => ({
+    getQueue: jest.fn(() => ({
+        add: jest.fn(async () => mockJob),
+        getJob: mockGetJob,
+    })),
+}));
 
 const request = require("supertest");
 const { buildApp, makeWavBuffer } = require("./helpers");
 
-const MOCK_AI_RESPONSE = {
-    intent_label: "play or excitement",
-    intent_confidence: 0.87,
-    intent_probs: {
-        "play or excitement": 0.87,
-        "hunger or food request": 0.06,
-        "contentment or relaxation": 0.04,
-        "attention seeking": 0.02,
-        other: 0.01,
-    },
-    fused_embedding_shape: [768],
-    audio_features: { duration_seconds: 1.5, mel_shape: [128, 32], centroid_shape: [32] },
-    naturelm_raw_output: "playful",
-    naturelm_intent: "play or excitement",
-    rvc_enhancement_applied: false,
-};
-
 let app;
-let emitSpy;
 
 beforeEach(() => {
-    emitSpy = jest.fn();
-    const mockIo = { to: jest.fn(() => ({ emit: emitSpy })) };
-    app = buildApp({ mockIo });
-    axios.post.mockResolvedValue({ data: MOCK_AI_RESPONSE });
-});
-
-afterEach(() => {
-    jest.clearAllMocks();
+    app = buildApp();
+    mockGetJob.mockReset();
 });
 
 async function getToken() {
     await request(app)
-        .post("/auth/register")
+        .post("/v1/auth/register")
         .send({ email: "analyze@test.com", password: "password123", name: "Tester" });
     const res = await request(app)
-        .post("/auth/login")
+        .post("/v1/auth/login")
         .send({ email: "analyze@test.com", password: "password123" });
     return res.body.token;
 }
 
-describe("POST /analyze", () => {
+describe("POST /v1/analyze", () => {
     it("returns 401 without token", async () => {
-        const res = await request(app).post("/analyze").attach("audio", makeWavBuffer(), "test.wav");
+        const res = await request(app)
+            .post("/v1/analyze")
+            .attach("audio", makeWavBuffer(), { filename: "test.wav", contentType: "audio/wav" });
         expect(res.status).toBe(401);
     });
 
-    it("forwards audio to AI service and returns result", async () => {
+    it("accepts audio and returns 202 with jobId", async () => {
         const token = await getToken();
         const res = await request(app)
-            .post("/analyze")
+            .post("/v1/analyze")
             .set("Authorization", `Bearer ${token}`)
-            .attach("audio", makeWavBuffer(), "test.wav");
-        expect(res.status).toBe(200);
-        expect(res.body.intent_label).toBe("play or excitement");
-        expect(res.body.intent_confidence).toBe(0.87);
-        expect(axios.post).toHaveBeenCalledTimes(1);
-    });
-
-    it("emits analysis_complete over WebSocket after success", async () => {
-        const token = await getToken();
-        await request(app)
-            .post("/analyze")
-            .set("Authorization", `Bearer ${token}`)
-            .attach("audio", makeWavBuffer(), "test.wav");
-        expect(emitSpy).toHaveBeenCalledWith(
-            "analysis_complete",
-            expect.objectContaining({ userId: "analyze@test.com" })
-        );
+            .attach("audio", makeWavBuffer(), { filename: "test.wav", contentType: "audio/wav" });
+        expect(res.status).toBe(202);
+        expect(res.body.jobId).toBe("mock-job-123");
+        expect(res.body.message).toMatch(/queued/i);
     });
 
     it("returns 400 when no audio file is attached", async () => {
         const token = await getToken();
         const res = await request(app)
-            .post("/analyze")
+            .post("/v1/analyze")
             .set("Authorization", `Bearer ${token}`);
         expect(res.status).toBe(400);
     });
 
-    it("returns AI service error status on upstream failure", async () => {
-        axios.post.mockRejectedValueOnce({
-            response: { status: 422, data: { detail: "Unsupported audio format" } },
+    it("returns 415 for non-audio file type", async () => {
+        const token = await getToken();
+        const res = await request(app)
+            .post("/v1/analyze")
+            .set("Authorization", `Bearer ${token}`)
+            .attach("audio", Buffer.from("fake pdf"), { filename: "doc.pdf", contentType: "application/pdf" });
+        expect(res.status).toBe(415);
+    });
+});
+
+describe("GET /v1/analyze/status/:jobId", () => {
+    it("returns 401 without token", async () => {
+        const res = await request(app).get("/v1/analyze/status/abc123");
+        expect(res.status).toBe(401);
+    });
+
+    it("returns 404 for unknown jobId", async () => {
+        mockGetJob.mockResolvedValue(null);
+        const token = await getToken();
+        const res = await request(app)
+            .get("/v1/analyze/status/unknown-id")
+            .set("Authorization", `Bearer ${token}`);
+        expect(res.status).toBe(404);
+    });
+
+    it("returns job state for known jobId", async () => {
+        mockGetJob.mockResolvedValue({
+            id: "mock-job-123",
+            getState: async () => "completed",
+            returnvalue: { intent_label: "play or excitement" },
+            failedReason: null,
         });
         const token = await getToken();
         const res = await request(app)
-            .post("/analyze")
-            .set("Authorization", `Bearer ${token}`)
-            .attach("audio", makeWavBuffer(), "test.wav");
-        expect(res.status).toBe(422);
-        expect(res.body.error).toMatch(/unsupported audio format/i);
+            .get("/v1/analyze/status/mock-job-123")
+            .set("Authorization", `Bearer ${token}`);
+        expect(res.status).toBe(200);
+        expect(res.body.state).toBe("completed");
+        expect(res.body.jobId).toBe("mock-job-123");
     });
 });
