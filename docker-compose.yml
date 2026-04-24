@@ -1,0 +1,41 @@
+version: "3.9"
+
+services:
+  mongodb:
+    image: mongo:7
+    restart: unless-stopped
+    volumes:
+      - mongo_data:/data/db
+    ports:
+      - "27017:27017"
+
+  ai-service:
+    build: ./ai-service
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - DEMO_MODE=${DEMO_MODE:-0}
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-http://localhost:5000}
+    volumes:
+      # Mount checkpoint directory so you can drop in the RVC model without rebuilding
+      - ./ai-service/voice/checkpoints:/app/voice/checkpoints
+
+  api-server:
+    build: ./api-server
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    environment:
+      - MONGO_URI=mongodb://mongodb:27017/zooglossia
+      - JWT_SECRET=${JWT_SECRET:?JWT_SECRET is required}
+      - PORT=5000
+      - NODE_ENV=${NODE_ENV:-production}
+      - AI_SERVICE_URL=http://ai-service:8000
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-}
+    depends_on:
+      - mongodb
+      - ai-service
+
+volumes:
+  mongo_data:
