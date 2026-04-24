@@ -6,7 +6,6 @@ from typing import Annotated, Optional
 import sentry_sdk
 import structlog
 import numpy as np
-import soundfile as sf
 from dotenv import load_dotenv
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile, status
 from fastapi.middleware.cors import CORSMiddleware
@@ -143,7 +142,7 @@ async def analyze(
             )
         tmp.write(contents)
         tmp_path = tmp.name
-    
+
     logger.info("audio upload saved", path=tmp_path, size=len(contents), suffix=suffix)
 
     # Check if in demo mode (skip heavy ML models)

@@ -5,7 +5,6 @@ import librosa
 import soundfile as sf
 from scipy.io import wavfile
 from df.enhance import enhance, init_df, load_audio
-from df.io import resample
 
 from voice.rvc_enhancer import enhance_vocalization
 
@@ -24,7 +23,7 @@ def load_and_resample(path: str):
                 return audio
             except Exception as wav_err:
                 print(f"scipy wavfile failed: {wav_err}, trying librosa...")
-        
+
         # Fallback to librosa
         audio, sr = librosa.load(path, sr=None, mono=True)
         if sr != TARGET_SR:

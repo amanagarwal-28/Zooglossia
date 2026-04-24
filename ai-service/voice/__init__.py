@@ -1,1 +1,1 @@
-from .rvc_enhancer import enhance_vocalization
+from .rvc_enhancer import enhance_vocalization as enhance_vocalization
