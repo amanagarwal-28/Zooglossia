@@ -53,6 +53,7 @@ export function useAnalyze() {
                     Authorization: `Bearer ${token}`,
                 },
                 body: formData,
+                signal: AbortSignal.timeout(300_000), // 5 minutes for first model load + analysis
             });
 
             if (!res.ok) {

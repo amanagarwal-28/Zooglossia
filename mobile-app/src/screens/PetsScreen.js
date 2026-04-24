@@ -71,6 +71,11 @@ export function PetsScreen({ navigation }) {
             return;
         }
 
+        if (!token) {
+            Alert.alert("Authentication error", "Missing auth token. Please log in again.");
+            return;
+        }
+
         setSaving(true);
         try {
             const payload = {
@@ -79,6 +84,8 @@ export function PetsScreen({ navigation }) {
                 breed: form.breed.trim() || null,
                 age_years: form.age_years ? parseFloat(form.age_years) : null,
             };
+
+            console.log("[PetsScreen] Adding pet with payload:", payload);
 
             const res = await fetch(`${API_URL}/pets`, {
                 method: "POST",
@@ -89,16 +96,23 @@ export function PetsScreen({ navigation }) {
                 body: JSON.stringify(payload),
             });
 
+            console.log("[PetsScreen] Response status:", res.status);
+
             if (!res.ok) {
                 const body = await res.json().catch(() => ({}));
+                console.error("[PetsScreen] Error response:", body);
                 throw new Error(body.error || `Failed to add pet (${res.status})`);
             }
 
             const createdPet = await res.json();
+            console.log("[PetsScreen] Pet created successfully:", createdPet);
+
             setPets((prev) => [...prev, createdPet]);
             setForm({ name: "", species: "dog", breed: "", age_years: "" });
             setModalVisible(false);
+            Alert.alert("Success", "Pet added successfully!");
         } catch (err) {
+            console.error("[PetsScreen] Error adding pet:", err.message);
             Alert.alert("Failed to add pet", err.message);
         } finally {
             setSaving(false);
@@ -202,11 +216,23 @@ export function PetsScreen({ navigation }) {
                             </View>
                         ))}
                         <View style={styles.modalActions}>
-                            <TouchableOpacity style={styles.cancelBtn} onPress={() => setModalVisible(false)}>
+                            <TouchableOpacity
+                                style={styles.cancelBtn}
+                                onPress={() => !saving && setModalVisible(false)}
+                                activeOpacity={saving ? 1 : 0.7}
+                            >
                                 <Text style={styles.cancelBtnText}>Cancel</Text>
                             </TouchableOpacity>
-                            <TouchableOpacity style={[styles.saveBtn, saving && styles.disabledBtn]} onPress={addPet} disabled={saving}>
-                                <Text style={styles.saveBtnText}>Save</Text>
+                            <TouchableOpacity
+                                style={[styles.saveBtn, saving && styles.disabledBtn]}
+                                onPress={() => !saving && addPet()}
+                                activeOpacity={saving ? 1 : 0.7}
+                            >
+                                {saving ? (
+                                    <ActivityIndicator color="#fff" size="small" />
+                                ) : (
+                                    <Text style={styles.saveBtnText}>Save</Text>
+                                )}
                             </TouchableOpacity>
                         </View>
                     </View>

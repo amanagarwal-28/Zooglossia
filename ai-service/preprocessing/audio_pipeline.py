@@ -3,6 +3,7 @@ import os
 import numpy as np
 import librosa
 import soundfile as sf
+from scipy.io import wavfile
 from df.enhance import enhance, init_df, load_audio
 from df.io import resample
 
@@ -12,10 +13,25 @@ TARGET_SR = 16000
 
 
 def load_and_resample(path: str):
-    audio, sr = librosa.load(path, sr=None, mono=True)
-    if sr != TARGET_SR:
-        audio = librosa.resample(audio, orig_sr=sr, target_sr=TARGET_SR)
-    return audio
+    try:
+        # Try scipy first for WAV files (more reliable)
+        if path.endswith('.wav'):
+            try:
+                sr, audio = wavfile.read(path)
+                audio = audio.astype(np.float32) / 32768.0  # Normalize to [-1, 1]
+                if sr != TARGET_SR:
+                    audio = librosa.resample(audio, orig_sr=sr, target_sr=TARGET_SR)
+                return audio
+            except Exception as wav_err:
+                print(f"scipy wavfile failed: {wav_err}, trying librosa...")
+        
+        # Fallback to librosa
+        audio, sr = librosa.load(path, sr=None, mono=True)
+        if sr != TARGET_SR:
+            audio = librosa.resample(audio, orig_sr=sr, target_sr=TARGET_SR)
+        return audio
+    except Exception as e:
+        raise RuntimeError(f"Failed to load audio file from {path}: {str(e)}. Ensure file is valid WAV/MP3/FLAC format.")
 
 
 def denoise(audio: np.ndarray):

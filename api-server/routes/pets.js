@@ -14,10 +14,15 @@ router.get("/", async (req, res, next) => {
 
 router.post("/", async (req, res, next) => {
     try {
+        console.log("[pets] POST /pets request from:", req.user.email);
+        console.log("[pets] Body:", req.body);
+
         const { name, species, breed, age_years } = req.body;
         if (!name || !species) {
+            console.log("[pets] Validation failed: missing name or species");
             return res.status(400).json({ error: "name and species are required" });
         }
+
         const pet = new Pet({
             owner: req.user.email,
             name,
@@ -25,9 +30,13 @@ router.post("/", async (req, res, next) => {
             breed: breed || null,
             age_years: age_years || null,
         });
+
+        console.log("[pets] Saving pet:", pet);
         await pet.save();
+        console.log("[pets] Pet saved successfully:", pet._id);
         res.status(201).json(pet);
     } catch (err) {
+        console.error("[pets] Error in POST /pets:", err);
         next(err);
     }
 });

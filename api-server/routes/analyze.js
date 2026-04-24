@@ -39,7 +39,7 @@ router.post("/", upload.single("audio"), async (req, res, next) => {
 
         const aiResponse = await axios.post(`${AI_SERVICE_URL}/analyze`, form, {
             headers: form.getHeaders(),
-            timeout: 120_000,
+            timeout: 300_000,  // 5 minutes for first model load + analysis
         });
 
         const result = aiResponse.data;

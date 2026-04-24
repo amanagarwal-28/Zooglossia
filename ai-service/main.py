@@ -113,6 +113,33 @@ async def analyze(
             )
         tmp.write(contents)
         tmp_path = tmp.name
+    
+    logger.info(f"Saved audio upload: {tmp_path}, size={len(contents)} bytes, suffix={suffix}")
+
+    # Check if in demo mode (skip heavy ML models)
+    if os.getenv("DEMO_MODE") == "1":
+        logger.info("DEMO_MODE enabled - returning mock analysis")
+        os.unlink(tmp_path)
+        return AnalyzeResponse(
+            intent_label="play or excitement",
+            intent_confidence=0.87,
+            intent_probs={
+                "play or excitement": 0.87,
+                "hunger or food request": 0.06,
+                "contentment or relaxation": 0.04,
+                "attention seeking": 0.02,
+                "other": 0.01,
+            },
+            fused_embedding_shape=[768],
+            audio_features=AudioFeatures(
+                duration_seconds=3.5,
+                mel_shape=[80, 87],
+                centroid_shape=[87],
+            ),
+            naturelm_raw_output="Pet is playful and energetic",
+            naturelm_intent="play or excitement",
+            rvc_enhancement_applied=False,
+        )
 
     try:
         # Step 1: Preprocessing (denoise + RVC v3 enhancement + features)

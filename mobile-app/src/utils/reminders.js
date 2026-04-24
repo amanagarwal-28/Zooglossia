@@ -162,7 +162,7 @@ export function getDueReminderMessage(settings, now = new Date()) {
     }
 
     return {
-        message: `Reminder: ${due.join(", ")}. Open Analyze and record your pet if needed.",
+        message: `Reminder: ${due.join(", ")}. Open Analyze and record your pet if needed.`,
         todayKey,
     };
 }
