@@ -1,0 +1,62 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  api-test:
+    name: API Server Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: api-server/package-lock.json
+
+      - name: Install dependencies
+        working-directory: api-server
+        run: npm ci
+
+      - name: Run tests
+        working-directory: api-server
+        run: npm test
+
+  ai-lint:
+    name: AI Service Lint
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: ai-service/requirements.txt
+
+      - name: Install ruff
+        run: pip install ruff
+
+      - name: Lint
+        working-directory: ai-service
+        run: ruff check . --select E,F,W --ignore E501
+
+  docker-build:
+    name: Docker Build Check
+    runs-on: ubuntu-latest
+    # Only verify the build works; don't push
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build api-server image
+        run: docker build -t zooglossia-api ./api-server
+
+      - name: Build ai-service image
+        run: docker build -t zooglossia-ai ./ai-service
